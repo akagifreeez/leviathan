@@ -46,6 +46,12 @@ type Tentacle = { rim: number; len: number; phase: number; curl: number; width: 
 type Particle = { x: number; y: number; r: number; phase: number; drift: number; spd: number };
 export type Geom = { tentacles: Tentacle[]; arms: Tentacle[]; particles: Particle[] };
 
+// A live trade flashing across the creature's skin. Born at elapsed time t0 on
+// the same clock drawScene uses. B (buy) = warm flash rising up the bell; A
+// (sell) = cool flash sinking down the tentacles. mag 0..1 from trade size.
+export type Flash = { t0: number; side: "A" | "B"; mag: number; lane: number };
+export const FLASH_LIFE = 1.15; // seconds
+
 export function buildOrganism(seed = 7): Geom {
   const rng = mulberry32(seed);
   const tentacles: Tentacle[] = [];
@@ -91,6 +97,48 @@ const brighten = (c: [number, number, number], k: number): [number, number, numb
   Math.round(c[1] + (255 - c[1]) * k),
   Math.round(c[2] + (255 - c[2]) * k),
 ];
+const lerpRgb = (a: [number, number, number], b: [number, number, number], t: number): [number, number, number] => [
+  a[0] + (b[0] - a[0]) * t,
+  a[1] + (b[1] - a[1]) * t,
+  a[2] + (b[2] - a[2]) * t,
+];
+
+// A recorded liquidation-cascade frame driving the convulsion. stress is the
+// real cum_liquidations / cum_book ratio at the scrub position (≥1 = ignition).
+export type Convulse = { stress: number; exhausted: boolean };
+
+function drawRupture(
+  c: CanvasRenderingContext2D,
+  cx: number,
+  rimY: number,
+  bw: number,
+  t: number,
+  st: number,
+  exhausted: boolean,
+  glowPass: boolean
+) {
+  const warm: [number, number, number] = [255, 90, 64];
+  const n = Math.floor(6 + st * 22);
+  for (let i = 0; i < n; i++) {
+    const ang = (i / n) * Math.PI * 2;
+    const r = (18 + ((i * 53) % 70)) * (0.5 + st) * (0.6 + ((i * 13) % 10) / 10);
+    const x = cx + Math.cos(ang) * r * 1.2;
+    const y = rimY + Math.sin(ang) * r * 0.7 + 10;
+    const sz = (glowPass ? 2.2 : 1.0) * (1 + 3 * st);
+    c.fillStyle = rgba(warm, (glowPass ? 0.5 : 0.85) * st);
+    c.beginPath();
+    c.arc(x, y, sz, 0, Math.PI * 2);
+    c.fill();
+  }
+  if (exhausted) {
+    const ring = (t % 1.6) / 1.6; // expanding shockwave 0..1
+    c.strokeStyle = rgba(warm, (glowPass ? 0.4 : 0.6) * (1 - ring));
+    c.lineWidth = glowPass ? 5 : 2.5;
+    c.beginPath();
+    c.ellipse(cx, rimY, bw * (0.6 + ring * 1.4), bw * (0.4 + ring), 0, 0, Math.PI * 2);
+    c.stroke();
+  }
+}
 
 function drawStrand(
   c: CanvasRenderingContext2D,
@@ -202,12 +250,53 @@ function drawCreature(
   }
 }
 
+const BUY_RGB: [number, number, number] = [255, 176, 92]; // warm
+const SELL_RGB: [number, number, number] = [108, 200, 255]; // cool
+
+function drawFlashes(
+  c: CanvasRenderingContext2D,
+  flashes: Flash[],
+  t: number,
+  cx: number,
+  bw: number,
+  bellTopY: number,
+  rimY: number,
+  tipY: number,
+  glowPass: boolean
+) {
+  for (const fl of flashes) {
+    const age = t - fl.t0;
+    if (age < 0 || age > FLASH_LIFE) continue;
+    const p = age / FLASH_LIFE;
+    const fade = Math.sin(p * Math.PI); // in then out
+    const x = cx + (fl.lane - 0.5) * bw * 1.5 + Math.sin(p * 3 + fl.lane * 6) * 6;
+    const y = fl.side === "B" ? rimY + (bellTopY - rimY) * p : rimY + (tipY - rimY) * p;
+    const rgb = fl.side === "B" ? BUY_RGB : SELL_RGB;
+    const size = (glowPass ? 2.4 : 1.0) * (1.6 + 6 * fl.mag);
+    c.fillStyle = rgba(rgb, (glowPass ? 0.55 : 0.95) * fade * (0.45 + 0.55 * fl.mag));
+    c.beginPath();
+    c.arc(x, y, size, 0, Math.PI * 2);
+    c.fill();
+    // short trailing streak
+    const dir = fl.side === "B" ? 1 : -1;
+    c.strokeStyle = rgba(rgb, (glowPass ? 0.4 : 0.6) * fade * (0.4 + 0.6 * fl.mag));
+    c.lineWidth = size * 0.7;
+    c.lineCap = "round";
+    c.beginPath();
+    c.moveTo(x, y);
+    c.lineTo(x, y + dir * (10 + 26 * fl.mag));
+    c.stroke();
+  }
+}
+
 export function drawScene(
   main: CanvasRenderingContext2D,
   glowCanvas: HTMLCanvasElement,
   t: number,
   drive: Drive,
-  geom: Geom
+  geom: Geom,
+  flashes: Flash[] = [],
+  convulse?: Convulse
 ) {
   const W = LOGICAL_W;
   const H = LOGICAL_H;
@@ -223,16 +312,24 @@ export function drawScene(
   main.fillRect(0, 0, W, H);
   glow.clearRect(0, 0, W, H);
 
+  // cascade convulsion (recorded replay) — real liq/book stress drives it
+  const st = convulse ? clamp01(convulse.stress) : 0;
+  const exhausted = convulse?.exhausted ?? false;
+
   // breathing (jellyfish swim): contract = narrower + taller, then relax
   const breath = Math.sin(t * 1.05); // -1..1
-  const contraction = Math.max(0, breath); // 0..1
-  const cx = W * 0.5;
-  const cy = H * 0.36 - drive.tilt * 18 + Math.sin(t * 1.05 - 0.4) * 10;
-  const bw = (150 + 120 * drive.bulk) * (1 - 0.1 * breath);
+  const contraction = Math.min(1, Math.max(0, breath) + st); // thrash under stress
+  const shakeX = st ? Math.sin(t * 47) * st * 7 + Math.sin(t * 31.3) * st * 4 : 0;
+  const shakeY = st ? Math.cos(t * 41) * st * 5 : 0;
+  const cx = W * 0.5 + shakeX;
+  const cy = H * 0.36 - drive.tilt * 18 + Math.sin(t * 1.05 - 0.4) * 10 + shakeY;
+  const bw = (150 + 120 * drive.bulk) * (1 - 0.1 * breath) * (1 - 0.12 * st); // clench
   const bh = (84 + 64 * drive.bulk) * (1 + 0.16 * breath);
   const rimY = cy + bh * 0.3;
   const tentLen = 150 + 230 * drive.bulk;
-  const rgb = drive.rgb;
+  const rgb = st ? lerpRgb(drive.rgb, [255, 70, 55], st * 0.7) : drive.rgb; // bruise
+  const bellTopY = cy - bh * 1.5;
+  const tipY = rimY + tentLen;
 
   // plankton on glow (so it blooms), tinted by the creature
   for (const p of geom.particles) {
@@ -247,6 +344,8 @@ export function drawScene(
 
   // creature on glow (bright, to be blurred)
   drawCreature(glow, cx, cy, bw, bh, rimY, t, contraction, tentLen, rgb, drive, geom, true);
+  drawFlashes(glow, flashes, t, cx, bw, bellTopY, rimY, tipY, true);
+  if (st > 0.12) drawRupture(glow, cx, rimY, bw, t, st, exhausted, true);
 
   // composite blurred glow behind the crisp layer
   main.save();
@@ -269,4 +368,6 @@ export function drawScene(
 
   // creature crisp on main
   drawCreature(main, cx, cy, bw, bh, rimY, t, contraction, tentLen, rgb, drive, geom, false);
+  drawFlashes(main, flashes, t, cx, bw, bellTopY, rimY, tipY, false);
+  if (st > 0.12) drawRupture(main, cx, rimY, bw, t, st, exhausted, false);
 }

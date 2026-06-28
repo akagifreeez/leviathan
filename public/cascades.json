@@ -1,0 +1,22 @@
+{
+  "cassettes": [
+    {
+      "coin": "HYPE",
+      "ignited": true,
+      "ignitionPct": 0.25,
+      "peakPct": 15.0,
+      "bookExhausted": true,
+      "positionsConsidered": 24,
+      "sampledAt": "2026-06-28T11:13:30Z"
+    },
+    {
+      "coin": "BTC",
+      "ignited": false,
+      "ignitionPct": null,
+      "peakPct": 0.0,
+      "bookExhausted": false,
+      "positionsConsidered": 12,
+      "sampledAt": "2026-06-28T11:13:30Z"
+    }
+  ]
+}
