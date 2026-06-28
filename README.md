@@ -6,7 +6,7 @@
 
 The market rendered as a living sea. Each top coin is a creature: open interest is its **bulk**, funding its **color**, 24h volume its **glow**, each live trade a **flash across its skin**. Click any creature and its **liquidation cascade** plays back — it convulses if forced selling outruns the visible book. All from Hyperliquid's **public Info API / WS** — no API key, no login.
 
-## Honest notes (盛らない)
+## Honest notes
 
 - **read-only / key-free / public data only.** No signing, no orders, no key is ever handed over.
 - The creature is a **metaphor for the market**, not biology.
