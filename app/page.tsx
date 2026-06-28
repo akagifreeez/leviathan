@@ -1,4 +1,4 @@
-import Vitals from "@/components/Vitals";
+import MarketStage from "@/components/MarketStage";
 
 export default function Home() {
   return (
@@ -13,7 +13,7 @@ export default function Home() {
         </p>
       </section>
 
-      <Vitals />
+      <MarketStage />
 
       <p className="honest">
         <b>正直な但し書き（盛らない）：</b>{" "}

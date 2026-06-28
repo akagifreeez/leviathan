@@ -86,7 +86,7 @@ export function emaStep(prev: number | null | undefined, next: number, alpha = 0
 // runs warm/red; negative (shorts pay = short-heavy) runs cool/teal; near zero
 // is pale. This is an *observation of crowding bias*, NOT a price direction.
 // hourlyFunding is the raw decimal (e.g. 0.0000125 ≈ 0.00125%/hr).
-export function fundingColor(hourlyFunding: number): string {
+export function fundingRgb(hourlyFunding: number): [number, number, number] {
   // Saturate around ±0.05%/hr (a strong funding regime on HL).
   const t = Math.max(-1, Math.min(1, hourlyFunding / 0.0005));
   const neutral = [210, 222, 232]; // pale
@@ -94,6 +94,10 @@ export function fundingColor(hourlyFunding: number): string {
   const cool = [86, 220, 200]; // short-heavy
   const target = t >= 0 ? warm : cool;
   const k = Math.abs(t);
-  const c = neutral.map((n, i) => Math.round(n + (target[i] - n) * k));
+  return neutral.map((n, i) => Math.round(n + (target[i] - n) * k)) as [number, number, number];
+}
+
+export function fundingColor(hourlyFunding: number): string {
+  const c = fundingRgb(hourlyFunding);
   return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
 }

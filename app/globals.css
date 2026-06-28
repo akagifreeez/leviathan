@@ -42,7 +42,7 @@ main {
   line-height: 1.6;
 }
 
-/* live data conduit (v0: text only — the creature canvas comes next) */
+/* live creature stage + data conduit */
 .vitalswrap {
   margin: 26px 0 14px;
   border: 1px solid var(--line);
@@ -50,6 +50,31 @@ main {
   overflow: hidden;
   background: #05070c;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.stagewrap { position: relative; line-height: 0; }
+.stage {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #03060a;
+}
+.livebadge {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  background: rgba(4, 8, 14, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 11px;
+  line-height: 1;
+  backdrop-filter: blur(4px);
 }
 
 .vitals-head {
