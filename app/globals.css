@@ -1,0 +1,154 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #04060a;
+  --panel: #0a0d14;
+  --ink: #e7ecf2;
+  --muted: #8b96a6;
+  --teal: #56dcc8;
+  --warm: #ff6056;
+  --line: #161c28;
+}
+
+html, body {
+  background: radial-gradient(120% 90% at 50% -10%, #0a1018 0%, var(--bg) 60%);
+  color: var(--ink);
+  font-family: "Segoe UI", system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100%;
+}
+
+main {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+}
+
+.hero h1 {
+  font-size: clamp(28px, 5vw, 46px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  background: linear-gradient(90deg, #7ff0dd, #8fb4ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero .tagline {
+  margin-top: 10px;
+  font-size: clamp(15px, 2.2vw, 19px);
+  color: var(--muted);
+  max-width: 780px;
+  line-height: 1.6;
+}
+
+/* live data conduit (v0: text only — the creature canvas comes next) */
+.vitalswrap {
+  margin: 26px 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #05070c;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.vitals-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  background: #080b11;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.vitals-head .coin { color: var(--ink); font-weight: 600; font-size: 15px; }
+.vitals-head .spacer { flex: 1; }
+
+.dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: #3a4150; display: inline-block;
+  box-shadow: 0 0 0 0 rgba(127, 240, 221, 0);
+}
+.dot.on {
+  background: var(--teal);
+  box-shadow: 0 0 8px 1px rgba(86, 220, 200, 0.6);
+}
+
+.vitals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1px;
+  background: var(--line);
+}
+.vital {
+  background: #06080d;
+  padding: 18px 18px 16px;
+}
+.vital .k {
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.vital .val {
+  margin-top: 8px;
+  font-family: Consolas, "SF Mono", monospace;
+  font-size: clamp(20px, 3.2vw, 28px);
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.vital .sub { margin-top: 4px; font-size: 12.5px; color: var(--muted); }
+.vital .swatch {
+  display: inline-block; width: 12px; height: 12px;
+  border-radius: 3px; vertical-align: -1px; margin-right: 6px;
+}
+.up { color: var(--teal); }
+.down { color: var(--warm); }
+
+.placeholder {
+  padding: 14px 18px;
+  border-top: 1px dashed var(--line);
+  font-size: 12.5px;
+  color: var(--muted);
+  background: #070a0f;
+}
+.placeholder code {
+  color: #cdd6e2; background: #0e1118; padding: 2px 7px; border-radius: 6px; font-size: 12px;
+}
+
+.honest {
+  margin: 18px 0 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 18px;
+  background: var(--panel);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.honest b { color: var(--ink); font-weight: 600; }
+
+.about {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+}
+.card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 18px;
+  background: var(--panel);
+}
+.card h3 { font-size: 14px; color: var(--teal); margin-bottom: 6px; }
+.card p { font-size: 13.5px; color: var(--muted); line-height: 1.6; }
+
+.foot {
+  margin-top: 30px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.foot a { color: #8fb4ff; text-decoration: none; }
+.foot a:hover { text-decoration: underline; }
