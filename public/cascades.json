@@ -1,22 +1,112 @@
 {
   "cassettes": [
     {
-      "coin": "HYPE",
-      "ignited": true,
-      "ignitionPct": 0.25,
-      "peakPct": 15.0,
-      "bookExhausted": true,
-      "positionsConsidered": 24,
-      "sampledAt": "2026-06-28T11:13:30Z"
-    },
-    {
       "coin": "BTC",
       "ignited": false,
       "ignitionPct": null,
       "peakPct": 0.0,
       "bookExhausted": false,
       "positionsConsidered": 12,
-      "sampledAt": "2026-06-28T11:13:30Z"
+      "sampledAt": "2026-06-28T11:57:33Z"
+    },
+    {
+      "coin": "HYPE",
+      "ignited": true,
+      "ignitionPct": 0.25,
+      "peakPct": 15.0,
+      "bookExhausted": true,
+      "positionsConsidered": 24,
+      "sampledAt": "2026-06-28T11:57:33Z"
+    },
+    {
+      "coin": "ETH",
+      "ignited": false,
+      "ignitionPct": null,
+      "peakPct": 0.0,
+      "bookExhausted": false,
+      "positionsConsidered": 6,
+      "sampledAt": "2026-06-28T11:57:33Z"
+    },
+    {
+      "coin": "SOL",
+      "ignited": false,
+      "ignitionPct": null,
+      "peakPct": 0.0,
+      "bookExhausted": false,
+      "positionsConsidered": 8,
+      "sampledAt": "2026-06-28T11:57:33Z"
+    },
+    {
+      "coin": "ZEC",
+      "ignited": false,
+      "ignitionPct": null,
+      "peakPct": 0.0,
+      "bookExhausted": false,
+      "positionsConsidered": 1,
+      "sampledAt": "2026-06-28T11:57:34Z"
+    },
+    {
+      "coin": "AAVE",
+      "ignited": false,
+      "ignitionPct": null,
+      "peakPct": 0.0,
+      "bookExhausted": false,
+      "positionsConsidered": 0,
+      "sampledAt": "2026-06-28T11:57:34Z"
+    },
+    {
+      "coin": "LIT",
+      "ignited": false,
+      "ignitionPct": null,
+      "peakPct": 0.0,
+      "bookExhausted": false,
+      "positionsConsidered": 1,
+      "sampledAt": "2026-06-28T11:57:34Z"
+    },
+    {
+      "coin": "XRP",
+      "ignited": false,
+      "ignitionPct": null,
+      "peakPct": 0.0,
+      "bookExhausted": false,
+      "positionsConsidered": 1,
+      "sampledAt": "2026-06-28T11:57:34Z"
+    },
+    {
+      "coin": "NEAR",
+      "ignited": false,
+      "ignitionPct": null,
+      "peakPct": 0.0,
+      "bookExhausted": false,
+      "positionsConsidered": 1,
+      "sampledAt": "2026-06-28T11:57:34Z"
+    },
+    {
+      "coin": "WLD",
+      "ignited": true,
+      "ignitionPct": 0.25,
+      "peakPct": 15.0,
+      "bookExhausted": true,
+      "positionsConsidered": 2,
+      "sampledAt": "2026-06-28T11:57:35Z"
+    },
+    {
+      "coin": "PUMP",
+      "ignited": false,
+      "ignitionPct": null,
+      "peakPct": 0.0,
+      "bookExhausted": false,
+      "positionsConsidered": 0,
+      "sampledAt": "2026-06-28T11:57:35Z"
+    },
+    {
+      "coin": "XMR",
+      "ignited": false,
+      "ignitionPct": null,
+      "peakPct": 0.0,
+      "bookExhausted": false,
+      "positionsConsidered": 0,
+      "sampledAt": "2026-06-28T11:57:35Z"
     }
   ]
 }

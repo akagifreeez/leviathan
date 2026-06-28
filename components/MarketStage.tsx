@@ -1,66 +1,82 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { parseMetaAndAssetCtxs, emaStep, fundingColor, fmtUsd, fmtPct, fmtApr } from "@/lib/hl";
+import { parseMetaAndAssetCtxs, fundingColor, fmtUsd, fmtPct, fmtApr, topByOi, type AssetRow } from "@/lib/hl";
 import {
   buildOrganism,
   driveFrom,
-  drawScene,
+  drawSea,
+  layoutSea,
   LOGICAL_W,
   LOGICAL_H,
   FLASH_LIFE,
   type Drive,
   type Vitals,
   type Flash,
+  type SeaCreature,
 } from "@/lib/organism";
 import { openTradeStream } from "@/lib/hlws";
-import {
-  loadCascadeIndex,
-  loadCassette,
-  frameAt,
-  cassetteDrive,
-  type Cassette,
-  type CascadeIndexEntry,
-} from "@/lib/cascade";
+import { loadCascadeIndex, loadCassette, frameAt, type Cassette, type CascadeIndexEntry } from "@/lib/cascade";
 
-const COIN = "BTC";
 const POLL_MS = 1500;
-const REPLAY_SEC = 7; // full cascade sweep duration
+const TOP_N = 12; // creatures in the sea
+const TRADE_N = 6; // coins we open live trades for
+const REPLAY_SEC = 7;
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
-type Hud = {
-  markPx: number;
-  oiUsd: number;
-  dayVlm: number;
-  fundingApr: number;
-  fundingHourly: number;
-  change24h: number;
+type Hud = { coin: string; markPx: number; oiUsd: number; dayVlm: number; fundingApr: number; fundingHourly: number; change24h: number };
+type SeaEntry = {
+  coin: string;
+  geom: ReturnType<typeof buildOrganism>;
+  cx: number;
+  cy: number;
+  scale: number;
+  phase: number;
+  depth: number;
+  cur: Drive;
+  target: Drive;
+  flashes: Flash[];
 };
+
+const toVit = (r: AssetRow): Vitals => ({
+  markPx: r.markPx,
+  oiUsd: r.oiUsd,
+  dayVlm: r.dayVlm,
+  fundingHourly: r.fundingHourly,
+  fundingApr: r.fundingApr,
+  change24h: r.change24h,
+});
+const toHud = (r: AssetRow): Hud => ({
+  coin: r.name,
+  markPx: r.markPx,
+  oiUsd: r.oiUsd,
+  dayVlm: r.dayVlm,
+  fundingApr: r.fundingApr,
+  fundingHourly: r.fundingHourly,
+  change24h: r.change24h,
+});
 
 export default function MarketStage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sliderRef = useRef<HTMLInputElement>(null);
-  const [hud, setHud] = useState<Hud | null>(null);
+  const [focusHud, setFocusHud] = useState<Hud | null>(null);
   const [live, setLive] = useState(false);
   const [wsUp, setWsUp] = useState(false);
   const [ago, setAgo] = useState<number | null>(null);
+  const [tradeCoins, setTradeCoins] = useState<string[]>([]);
 
-  // cascade replay
   const [cassettes, setCassettes] = useState<CascadeIndexEntry[]>([]);
   const [replayCoin, setReplayCoin] = useState<string | null>(null);
   const [replayPlaying, setReplayPlaying] = useState(false);
   const [readout, setReadout] = useState<{ pct: number; stress: number } | null>(null);
 
-  const ema = useRef<Hud | null>(null);
-  const target = useRef<Drive>(driveFrom(null));
-  const cur = useRef<Drive>(driveFrom(null));
-  const lastOk = useRef<number | null>(null);
+  const seaRef = useRef<SeaEntry[]>([]);
+  const focusCoinRef = useRef<string | null>(null);
   const startRef = useRef(0);
-  const flashes = useRef<Flash[]>([]);
+  const lastOk = useRef<number | null>(null);
 
   const casRef = useRef<Cassette | null>(null);
-  const casDriveRef = useRef<Drive | null>(null);
   const playheadRef = useRef(0);
   const replayPlayRef = useRef(false);
 
@@ -74,11 +90,10 @@ export default function MarketStage() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.scale(dpr, dpr);
-
     const glow = document.createElement("canvas");
     glow.width = LOGICAL_W;
     glow.height = LOGICAL_H;
-    const geom = buildOrganism(7);
+    const ambient = buildOrganism(999);
 
     let raf = 0;
     startRef.current = performance.now();
@@ -89,56 +104,54 @@ export default function MarketStage() {
       const dt = (now - lastNow) / 1000;
       lastNow = now;
 
-      const cas = casRef.current;
-      const tg = cas && casDriveRef.current ? casDriveRef.current : target.current;
-      const c = cur.current;
-      const k = 0.05;
-      c.bulk += (tg.bulk - c.bulk) * k;
-      c.glow += (tg.glow - c.glow) * k;
-      c.tilt += (tg.tilt - c.tilt) * k;
-      c.rgb = [
-        c.rgb[0] + (tg.rgb[0] - c.rgb[0]) * k,
-        c.rgb[1] + (tg.rgb[1] - c.rgb[1]) * k,
-        c.rgb[2] + (tg.rgb[2] - c.rgb[2]) * k,
-      ];
-
-      if (cas) {
+      // cascade playhead
+      let convCoin: string | null = null;
+      let conv = { stress: 0, exhausted: false };
+      if (casRef.current) {
         if (replayPlayRef.current) {
           playheadRef.current = Math.min(1, playheadRef.current + dt / REPLAY_SEC);
           if (playheadRef.current >= 1) replayPlayRef.current = false;
         }
-        const f = frameAt(cas, playheadRef.current);
-        drawScene(ctx, glow, t, c, geom, [], { stress: f.stress, exhausted: f.exhausted });
-      } else {
-        const fx = flashes.current;
-        while (fx.length && t - fx[0].t0 > FLASH_LIFE) fx.shift();
-        drawScene(ctx, glow, t, c, geom, fx);
+        const f = frameAt(casRef.current, playheadRef.current);
+        convCoin = casRef.current.coin;
+        conv = { stress: f.stress, exhausted: f.exhausted };
       }
+
+      const creatures: SeaCreature[] = [];
+      for (const e of seaRef.current) {
+        const c = e.cur;
+        const tg = e.target;
+        const k = 0.05;
+        c.bulk += (tg.bulk - c.bulk) * k;
+        c.glow += (tg.glow - c.glow) * k;
+        c.tilt += (tg.tilt - c.tilt) * k;
+        c.rgb = [
+          c.rgb[0] + (tg.rgb[0] - c.rgb[0]) * k,
+          c.rgb[1] + (tg.rgb[1] - c.rgb[1]) * k,
+          c.rgb[2] + (tg.rgb[2] - c.rgb[2]) * k,
+        ];
+        while (e.flashes.length && t - e.flashes[0].t0 > FLASH_LIFE) e.flashes.shift();
+        creatures.push({
+          coin: e.coin,
+          drive: c,
+          geom: e.geom,
+          cx: e.cx,
+          cy: e.cy,
+          scale: e.scale,
+          phase: e.phase,
+          depth: e.depth,
+          flashes: e.flashes,
+          convulse: convCoin === e.coin ? conv : undefined,
+        });
+      }
+      drawSea(ctx, glow, t, creatures, ambient);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  // live trades → skin flashes
-  useEffect(() => {
-    const stop = openTradeStream({
-      coin: COIN,
-      onStatus: (up) => setWsUp(up),
-      onTrade: (tr) => {
-        if (!startRef.current || casRef.current) return; // skip during replay
-        const notional = tr.px * tr.sz;
-        const mag = clamp01((Math.log10(Math.max(notional, 1)) - 2) / 4);
-        const t0 = (performance.now() - startRef.current) / 1000;
-        const fx = flashes.current;
-        fx.push({ t0, side: tr.side, mag, lane: Math.random() });
-        if (fx.length > 240) fx.splice(0, fx.length - 240);
-      },
-    });
-    return stop;
-  }, []);
-
-  // live vitals poll
+  // poll vitals for all sea coins; builds the sea on first response
   useEffect(() => {
     let stopped = false;
     let ctrl: AbortController | null = null;
@@ -152,21 +165,27 @@ export default function MarketStage() {
           signal: ctrl.signal,
         });
         if (!res.ok) throw new Error(`proxy ${res.status}`);
-        const j = await res.json();
-        const row = parseMetaAndAssetCtxs(j.data).find((r) => r.name === COIN);
-        if (stopped || !row) return;
-        const p = ema.current;
-        const next: Hud = {
-          markPx: emaStep(p?.markPx, row.markPx, 0.25),
-          oiUsd: emaStep(p?.oiUsd, row.oiUsd, 0.15),
-          dayVlm: emaStep(p?.dayVlm, row.dayVlm, 0.15),
-          fundingApr: emaStep(p?.fundingApr, row.fundingApr, 0.1),
-          fundingHourly: emaStep(p?.fundingHourly, row.fundingHourly, 0.1),
-          change24h: emaStep(p?.change24h, row.change24h, 0.2),
-        };
-        ema.current = next;
-        target.current = driveFrom(next as Vitals);
-        setHud(next);
+        const rows = parseMetaAndAssetCtxs((await res.json()).data);
+        if (stopped || !rows.length) return;
+
+        if (!seaRef.current.length) {
+          const top = topByOi(rows, TOP_N).map((r) => r.name);
+          seaRef.current = layoutSea(top).map((L) => {
+            const row = rows.find((r) => r.name === L.coin)!;
+            const d = driveFrom(toVit(row));
+            return { ...L, cur: { ...d, rgb: [...d.rgb] as Drive["rgb"] }, target: d, flashes: [] };
+          });
+          focusCoinRef.current = top[0];
+          setTradeCoins(top.slice(0, TRADE_N));
+        } else {
+          for (const e of seaRef.current) {
+            const row = rows.find((r) => r.name === e.coin);
+            if (row) e.target = driveFrom(toVit(row));
+          }
+        }
+        const fc = focusCoinRef.current;
+        const frow = rows.find((r) => r.name === fc);
+        if (frow) setFocusHud(toHud(frow));
         setLive(true);
         lastOk.current = Date.now();
       } catch {
@@ -186,11 +205,27 @@ export default function MarketStage() {
     };
   }, []);
 
-  // load cassette index once
+  // live trades for the top coins → skin flashes on the matching creature
   useEffect(() => {
-    loadCascadeIndex()
-      .then(setCassettes)
-      .catch(() => setCassettes([]));
+    if (!tradeCoins.length) return;
+    const stop = openTradeStream({
+      coins: tradeCoins,
+      onStatus: (up) => setWsUp(up),
+      onTrade: (tr) => {
+        if (!startRef.current) return;
+        const e = seaRef.current.find((x) => x.coin === tr.coin);
+        if (!e) return;
+        const notional = tr.px * tr.sz;
+        const mag = clamp01((Math.log10(Math.max(notional, 1)) - 2) / 4);
+        e.flashes.push({ t0: (performance.now() - startRef.current) / 1000, side: tr.side, mag, lane: Math.random() });
+        if (e.flashes.length > 120) e.flashes.splice(0, e.flashes.length - 120);
+      },
+    });
+    return stop;
+  }, [tradeCoins]);
+
+  useEffect(() => {
+    loadCascadeIndex().then(setCassettes).catch(() => setCassettes([]));
   }, []);
 
   // reconcile UI readout + slider from refs (no 60fps re-renders)
@@ -208,11 +243,11 @@ export default function MarketStage() {
     return () => clearInterval(id);
   }, []);
 
-  async function selectCassette(coin: string) {
+  async function selectCascade(coin: string) {
+    focusCoinRef.current = coin;
     try {
       const cas = await loadCassette(coin);
       casRef.current = cas;
-      casDriveRef.current = cassetteDrive(cas);
       playheadRef.current = 0;
       replayPlayRef.current = true;
       setReplayCoin(coin);
@@ -223,7 +258,6 @@ export default function MarketStage() {
   }
   function exitReplay() {
     casRef.current = null;
-    casDriveRef.current = null;
     replayPlayRef.current = false;
     setReplayCoin(null);
     setReplayPlaying(false);
@@ -231,7 +265,7 @@ export default function MarketStage() {
   }
   function toggleReplay() {
     if (!casRef.current) return;
-    if (playheadRef.current >= 1) playheadRef.current = 0; // restart from end
+    if (playheadRef.current >= 1) playheadRef.current = 0;
     replayPlayRef.current = !replayPlayRef.current;
     setReplayPlaying(replayPlayRef.current);
   }
@@ -240,9 +274,30 @@ export default function MarketStage() {
     replayPlayRef.current = false;
     setReplayPlaying(false);
   }
+  function onCanvasClick(ev: React.MouseEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = ((ev.clientX - rect.left) / rect.width) * LOGICAL_W;
+    const y = ((ev.clientY - rect.top) / rect.height) * LOGICAL_H;
+    let best: SeaEntry | null = null;
+    let bd = 1e9;
+    for (const e of seaRef.current) {
+      const d = Math.hypot(e.cx - x, e.cy - y);
+      if (d < bd) {
+        bd = d;
+        best = e;
+      }
+    }
+    if (best && bd < 130) {
+      focusCoinRef.current = best.coin;
+      if (cassettes.find((c) => c.coin === best!.coin)) selectCascade(best.coin);
+    }
+  }
 
-  const color = hud ? fundingColor(hud.fundingHourly) : "#3a4150";
-  const longHeavy = (hud?.fundingHourly ?? 0) >= 0;
+  const color = focusHud ? fundingColor(focusHud.fundingHourly) : "#3a4150";
+  const longHeavy = (focusHud?.fundingHourly ?? 0) >= 0;
+  const fcoin = focusHud?.coin ?? "—";
   const activeCas = cassettes.find((c) => c.coin === replayCoin);
 
   return (
@@ -251,7 +306,9 @@ export default function MarketStage() {
         <canvas
           ref={canvasRef}
           className="stage"
-          aria-label="A market rendered as a living, breathing creature"
+          onClick={onCanvasClick}
+          title="生物をクリックでその銘柄の清算カスケードを再生"
+          aria-label="The Hyperliquid market rendered as a sea of living creatures"
         />
         <div className="livebadge">
           {replayCoin ? (
@@ -262,7 +319,7 @@ export default function MarketStage() {
           ) : (
             <>
               <span className={`dot ${live ? "on" : ""}`} />
-              {live ? "LIVE · BTC-PERP" : "再接続中…"}
+              {live ? `LIVE · 上位${TOP_N}銘柄の海` : "再接続中…"}
               {ago != null ? ` · ${ago}s` : ""}
               <span className="sep" />
               <span className={`dot ${wsUp ? "on" : ""}`} />
@@ -272,12 +329,12 @@ export default function MarketStage() {
         </div>
       </div>
 
-      {/* cascade replay controls */}
+      {/* cascade stress-test */}
       <div className="cascade">
         <div className="cascade-head">
           <span className="cascade-title">清算カスケード ストレステスト</span>
           <span className="cascade-sub">
-            実ポジション（標本）の清算価格を実板に通し、連鎖を試算 — 競合未実装の固有機能
+            生物をクリック or 銘柄を選択 → その実ポジション（標本）を実板に通し連鎖を試算（競合未実装の固有機能）
           </span>
         </div>
         <div className="cascade-row">
@@ -285,17 +342,15 @@ export default function MarketStage() {
             <button
               key={c.coin}
               className={`casbtn ${replayCoin === c.coin ? "active" : ""}`}
-              onClick={() => selectCassette(c.coin)}
+              onClick={() => selectCascade(c.coin)}
             >
               {c.coin}
-              <span className="tag">
-                {c.ignited ? `点火 −${c.ignitionPct}%` : "板が吸収（点火せず）"}
-              </span>
+              <span className="tag">{c.ignited ? `点火 −${c.ignitionPct}%` : "板が吸収"}</span>
             </button>
           ))}
           {replayCoin && (
             <button className="casbtn ghost" onClick={exitReplay}>
-              ← ライブに戻る
+              ← ライブの海に戻る
             </button>
           )}
         </div>
@@ -340,39 +395,40 @@ export default function MarketStage() {
 
       <div className="vitals">
         <div className="vital">
-          <div className="k">Mark 価格</div>
-          <div className="val">{hud ? fmtUsd(hud.markPx) : "—"}</div>
-          <div className={`sub ${hud && hud.change24h >= 0 ? "up" : "down"}`}>
-            {hud ? `24h ${fmtPct(hud.change24h)}` : " "}
+          <div className="k">{fcoin} · Mark</div>
+          <div className="val">{focusHud ? fmtUsd(focusHud.markPx) : "—"}</div>
+          <div className={`sub ${focusHud && focusHud.change24h >= 0 ? "up" : "down"}`}>
+            {focusHud ? `24h ${fmtPct(focusHud.change24h)}` : " "}
           </div>
         </div>
         <div className="vital">
-          <div className="k">建玉 OI → 胴体の太さ</div>
-          <div className="val">{hud ? fmtUsd(hud.oiUsd) : "—"}</div>
-          <div className="sub">大きいほど太く重い体</div>
+          <div className="k">建玉 OI → 胴体</div>
+          <div className="val">{focusHud ? fmtUsd(focusHud.oiUsd) : "—"}</div>
+          <div className="sub">大きいほど太い体</div>
         </div>
         <div className="vital">
           <div className="k">24h 出来高 → 発光</div>
-          <div className="val">{hud ? fmtUsd(hud.dayVlm) : "—"}</div>
-          <div className="sub">血流の明るさ・流速</div>
+          <div className="val">{focusHud ? fmtUsd(focusHud.dayVlm) : "—"}</div>
+          <div className="sub">血流の明るさ</div>
         </div>
         <div className="vital">
           <div className="k">Funding → 体色</div>
           <div className="val" style={{ color }}>
-            {hud ? fmtApr(hud.fundingApr) : "—"}
+            {focusHud ? fmtApr(focusHud.fundingApr) : "—"}
           </div>
           <div className="sub">
             <span className="swatch" style={{ background: color }} />
-            {hud ? (longHeavy ? "ロング過熱（暖色）" : "ショート過熱（寒色）") : " "}
+            {focusHud ? (longHeavy ? "ロング過熱（暖色）" : "ショート過熱（寒色）") : " "}
           </div>
         </div>
       </div>
 
       <div className="flashlegend">
-        体表を走る光＝<b>ライブ約定</b>：
-        <span className="swatch" style={{ background: "rgb(255,176,92)" }} /> 買い（上へ）
-        <span className="swatch" style={{ background: "rgb(108,200,255)" }} /> 売り（下へ）
-        ／ 大きさ＝約定サイズ。痙攣＝清算カスケード（上のストレステスト）。
+        海の各生物＝<b>上位{TOP_N}銘柄</b>（大きさ=OI／色=funding／発光=出来高／呼吸=各々の位相）。
+        体表を走る光＝<b>ライブ約定</b>
+        <span className="swatch" style={{ background: "rgb(255,176,92)" }} />買い
+        <span className="swatch" style={{ background: "rgb(108,200,255)" }} />売り。
+        痙攣＝清算カスケード（生物クリック）。
       </div>
     </div>
   );

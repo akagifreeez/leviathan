@@ -6,10 +6,10 @@ export default function Home() {
       <section className="hero">
         <h1>Leviathan</h1>
         <p className="tagline">
-          <strong style={{ color: "#cfe8df" }}>ひとつの市場を、生き物として。</strong>{" "}
-          BTC perp のライブなオンチェーン・データで脈打つ1匹の生物。
-          建玉が<b>胴体の太さ</b>に、ファンディングが<b>体色</b>に、出来高が<b>発光</b>になり、
-          清算カスケードが起きれば<b>痙攣</b>する——APIキーもログインもなしで。
+          <strong style={{ color: "#cfe8df" }}>市場を、生き物の海として。</strong>{" "}
+          Hyperliquid 上位銘柄が、ライブなオンチェーン・データで脈打つ生物の群れになる。
+          建玉が<b>胴体の太さ</b>に、ファンディングが<b>体色</b>に、出来高が<b>発光</b>に、
+          約定が<b>体表を走る光</b>に。生物をクリックすれば、その<b>清算カスケード</b>で痙攣する——APIキーもログインもなしで。
         </p>
       </section>
 
@@ -28,8 +28,8 @@ export default function Home() {
         <div className="card">
           <h3>これは何？</h3>
           <p>
-            Hyperliquid の公開 Info API から BTC perp の mark / 建玉 / 出来高 / ファンディングを
-            ブラウザが直接取得し、決定論レンダラで「生きている1匹」に翻訳するライブデータアート。
+            Hyperliquid の公開 Info API / WS から上位銘柄の mark / 建玉 / 出来高 / ファンディング / 約定を
+            ブラウザが直接取得し、決定論レンダラで「生きている海」に翻訳するライブデータアート。
           </p>
         </div>
         <div className="card">
@@ -42,8 +42,8 @@ export default function Home() {
         <div className="card">
           <h3>段階</h3>
           <p>
-            <b>v0</b>＝呼吸する生物 → <b>v1（今ここ）</b>＝ライブ約定の光＋清算カスケードの痙攣再生 →
-            v2＝主要銘柄の器官分裂・ライブ計算。各段階を公開しながら進めます。
+            v0＝呼吸する生物 → v1＝ライブ約定の光＋清算カスケード痙攣 → <b>v2（今ここ）</b>＝
+            上位銘柄の生態系（生物の海）。次は BYOK の AI ナレーター実況。各段階を公開しながら進めます。
           </p>
         </div>
       </div>

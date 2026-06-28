@@ -2,9 +2,9 @@
 
 **Watch one market — BTC perp — breathe as a living creature, driven by live on-chain Hyperliquid data. Key-free, read-only, $0.**
 
-> **v1 is live.** A breathing BTC-perp creature driven by live data, **live trades flash across its skin**, and a **recorded liquidation-cascade replay** makes it convulse — all key-free and $0.
+> **v2 is live.** The whole top of the market is now a **sea of creatures** — one per top-OI coin — each breathing on live data, with **live trades flashing across their skin** and a **per-coin liquidation-cascade convulsion** (click a creature). All key-free and $0.
 
-A market rendered as a single breathing organism. Open interest is its **bulk**, funding its **color**, 24h volume its **glow**, each live trade a **flash across its skin**, and a liquidation cascade makes it **convulse**. All from Hyperliquid's **public Info API** — no API key, no login.
+The market rendered as a living sea. Each top coin is a creature: open interest is its **bulk**, funding its **color**, 24h volume its **glow**, each live trade a **flash across its skin**. Click any creature and its **liquidation cascade** plays back — it convulses if forced selling outruns the visible book. All from Hyperliquid's **public Info API / WS** — no API key, no login.
 
 ## Honest notes (盛らない)
 

@@ -1,14 +1,14 @@
 // Resilient browser WebSocket to Hyperliquid's PUBLIC ws endpoint — live trades
-// for one coin. No key, read-only. Auto-reconnect with backoff, 50s ping
-// keepalive (HL drops idle sockets), and it skips the subscriptionResponse and
-// any non-trade frames. This is a TS reimplementation of hl-read's Python
-// ResilientStream supervisor (that code can't run in the browser).
+// for one or more coins on a single socket. No key, read-only. Auto-reconnect
+// with backoff, 50s ping keepalive (HL drops idle sockets), skips the
+// subscriptionResponse and any non-trade frames. TS reimplementation of
+// hl-read's Python ResilientStream supervisor (that code can't run in a browser).
 
-export type Trade = { side: "A" | "B"; px: number; sz: number; time: number }; // A=sell, B=buy
+export type Trade = { coin: string; side: "A" | "B"; px: number; sz: number; time: number }; // A=sell, B=buy
 
-type Opts = { coin: string; onTrade: (t: Trade) => void; onStatus?: (up: boolean) => void };
+type Opts = { coins: string[]; onTrade: (t: Trade) => void; onStatus?: (up: boolean) => void };
 
-export function openTradeStream({ coin, onTrade, onStatus }: Opts): () => void {
+export function openTradeStream({ coins, onTrade, onStatus }: Opts): () => void {
   let ws: WebSocket | null = null;
   let closed = false;
   let backoff = 500;
@@ -33,13 +33,15 @@ export function openTradeStream({ coin, onTrade, onStatus }: Opts): () => void {
     ws.onopen = () => {
       backoff = 500;
       onStatus?.(true);
-      ws?.send(JSON.stringify({ method: "subscribe", subscription: { type: "trades", coin } }));
+      for (const coin of coins) {
+        ws?.send(JSON.stringify({ method: "subscribe", subscription: { type: "trades", coin } }));
+      }
       clearPing();
       pingTimer = setInterval(() => {
         try {
           ws?.send(JSON.stringify({ method: "ping" }));
         } catch {
-          /* socket will surface the failure via onclose */
+          /* surfaced via onclose */
         }
       }, 50000);
     };
@@ -52,11 +54,17 @@ export function openTradeStream({ coin, onTrade, onStatus }: Opts): () => void {
         return;
       }
       if (msg.channel !== "trades" || !Array.isArray(msg.data)) return; // skip subscriptionResponse / pong
-      for (const raw of msg.data as Array<{ side?: string; px?: string; sz?: string; time?: number }>) {
+      for (const raw of msg.data as Array<{ coin?: string; side?: string; px?: string; sz?: string; time?: number }>) {
         const px = Number(raw.px);
         const sz = Number(raw.sz);
         if (!isFinite(px) || !isFinite(sz)) continue;
-        onTrade({ side: raw.side === "B" ? "B" : "A", px, sz, time: Number(raw.time) || 0 });
+        onTrade({
+          coin: raw.coin || "",
+          side: raw.side === "B" ? "B" : "A",
+          px,
+          sz,
+          time: Number(raw.time) || 0,
+        });
       }
     };
 
